@@ -9,6 +9,7 @@ type Bucket struct {
 	LimitDuration time.Duration `yaml:"limitDuration"`
 }
 
+// todo concurrency access
 type Buckets map[string]*Bucket
 
 func (b *Bucket) ResetQuota() {
