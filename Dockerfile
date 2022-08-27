@@ -13,7 +13,7 @@ ENV CGO_ENABLED=0
 ENV GOPATH=/go/src/
 WORKDIR /go/src/github.com/inlets/connect
 
-COPY main.go    .
+COPY . .
 COPY go.mod .
 
 # add user in this stage because it cannot be done in next stage which is built from scratch
