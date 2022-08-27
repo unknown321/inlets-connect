@@ -14,3 +14,7 @@ logs:
 
 down:
 	$(DC) down
+
+lint:
+	docker run --rm -t -v $(CURDIR):$(CURDIR) -w $(CURDIR) \
+		golangci/golangci-lint:v1.49.0 golangci-lint run

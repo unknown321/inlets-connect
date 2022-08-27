@@ -3,9 +3,11 @@ package main
 import (
 	"flag"
 	"fmt"
-	"github.com/inlets/connect/handler"
 	"log"
 	"net/http"
+	"time"
+
+	"github.com/inlets/connect/handler"
 )
 
 var (
@@ -14,14 +16,38 @@ var (
 )
 
 func main() {
-	var port int
+	var (
+		port           int
+		defaultPort    = 3128
+		httpTimeout    = time.Second * 5
+		maxHeaderBytes = 1024 * 8
+	)
 
-	flag.IntVar(&port, "port", 3128, "The port to listen on")
+	flag.IntVar(&port, "port", defaultPort, "The port to listen on")
 	flag.Parse()
 
 	log.Printf("Version: %s\tCommit: %s", Version, GitCommit)
 
 	log.Printf("Listening on %d", port)
 
-	http.ListenAndServe(fmt.Sprintf(":%d", port), handler.Handle())
+	server := &http.Server{
+		Addr:              fmt.Sprintf(":%d", port),
+		ReadHeaderTimeout: httpTimeout,
+		Handler:           handler.Handle(),
+		ReadTimeout:       httpTimeout,
+		WriteTimeout:      httpTimeout,
+		IdleTimeout:       httpTimeout,
+		MaxHeaderBytes:    maxHeaderBytes,
+		TLSNextProto:      nil,
+		TLSConfig:         nil,
+		ConnState:         nil,
+		ErrorLog:          nil,
+		BaseContext:       nil,
+		ConnContext:       nil,
+	}
+
+	server.Handler = handler.Handle()
+	if err := server.ListenAndServe(); err != nil {
+		panic(err)
+	}
 }

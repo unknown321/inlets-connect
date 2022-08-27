@@ -2,29 +2,35 @@ package handler
 
 import (
 	"fmt"
-	"golang.org/x/sync/errgroup"
 	"io"
 	"log"
 	"net"
 	"net/http"
 	"strings"
 	"time"
+
+	"golang.org/x/sync/errgroup"
 )
+
+var httpTimeout = time.Second * 5
 
 func pipe(from net.Conn, to net.Conn) error {
 	defer from.Close()
 	n, err := io.Copy(from, to)
 	log.Printf("Wrote: %d bytes", n)
+
 	if err != nil && strings.Contains(err.Error(), "closed network") {
 		return nil
 	}
-	return err
+
+	return fmt.Errorf("cannot pipe: %w", err)
 }
 
 func Handle() http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodConnect {
 			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+
 			return
 		}
 
@@ -32,9 +38,10 @@ func Handle() http.Handler {
 
 		defer r.Body.Close()
 
-		conn, err := net.DialTimeout("tcp", r.Host, time.Second*5)
+		conn, err := net.DialTimeout("tcp", r.Host, httpTimeout)
 		if err != nil {
 			http.Error(w, fmt.Sprintf("Unable to dial %s, error: %s", r.Host, err.Error()), http.StatusServiceUnavailable)
+
 			return
 		}
 		w.WriteHeader(http.StatusOK)
@@ -44,12 +51,14 @@ func Handle() http.Handler {
 		hj, ok := w.(http.Hijacker)
 		if !ok {
 			http.Error(w, "Unable to hijack connection", http.StatusInternalServerError)
+
 			return
 		}
 
 		reqConn, wbuf, err := hj.Hijack()
 		if err != nil {
 			http.Error(w, fmt.Sprintf("Unable to hijack connection %s", err), http.StatusInternalServerError)
+
 			return
 		}
 		defer reqConn.Close()
