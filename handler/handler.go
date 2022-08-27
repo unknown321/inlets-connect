@@ -9,32 +9,15 @@ import (
 	"strings"
 	"time"
 
+	"github.com/inlets/connect/bucket"
+	"github.com/inlets/connect/config"
 	"golang.org/x/sync/errgroup"
 )
 
 var (
 	httpTimeout = time.Second * 5
+	buckets     bucket.Buckets
 )
-
-type Bucket struct {
-	Quota         int64
-	Value         int64
-	LastAccess    time.Time
-	LimitDuration time.Duration
-}
-
-type Buckets map[string]Bucket
-
-func (b *Bucket) ResetQuota() {
-	b.Value = 0
-}
-
-var buckets = Buckets{"google.com:443": {
-	Quota:         2 * 1024 * 1024,
-	Value:         0,
-	LastAccess:    time.Time{},
-	LimitDuration: time.Second * 10,
-}}
 
 func pipe(from net.Conn, to net.Conn) (b int64, err error) {
 	defer from.Close()
@@ -52,6 +35,10 @@ func pipe(from net.Conn, to net.Conn) (b int64, err error) {
 	return n, nil
 }
 
+func Init(conf *config.Config) {
+	buckets = conf.Buckets
+}
+
 //nolint:funlen
 func Handle() http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -62,12 +49,14 @@ func Handle() http.Handler {
 		}
 
 		if v, ok := buckets[r.Host]; ok {
-			if time.Now().Add(v.LimitDuration * -1).After(v.LastAccess) {
+			// log.Printf("Last access: %s, now: %s, limit duration: %s", *v.LastAccess, time.Now(), v.LimitDuration)
+			if time.Now().Add(v.LimitDuration * -1).After(*v.LastAccess) {
 				log.Printf("Quota reset for %s", r.Host)
 				v.ResetQuota()
 			}
 
 			if v.Value > v.Quota {
+				log.Printf("Quota reached for %s", r.Host)
 				http.Error(w, "Quota reached", http.StatusPaymentRequired)
 
 				return
@@ -125,7 +114,7 @@ func pipeWithBucket(reqConn net.Conn, conn net.Conn, host string) error {
 	if b != 0 {
 		if v, ok := buckets[host]; ok {
 			v.Value += b
-			v.LastAccess = time.Now()
+			*v.LastAccess = time.Now()
 			buckets[host] = v
 
 			log.Printf("host %s, value %d, quota %d", host, buckets[host].Value, buckets[host].Quota)

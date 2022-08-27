@@ -1,0 +1,5 @@
+buckets:
+  google.com:443:
+    quota: 1048576 # 1MB
+    limitDuration: 10s
+    value: 0

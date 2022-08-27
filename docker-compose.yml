@@ -3,5 +3,8 @@ version: "2"
 services:
   proxy:
     image: ${IMAGE}
+    volumes:
+      - ./config.yml:/config.yml:ro
+    command: "-config /config.yml"
     ports:
       - "3128:3128"
