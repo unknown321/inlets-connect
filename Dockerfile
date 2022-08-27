@@ -38,4 +38,3 @@ EXPOSE 80
 VOLUME /tmp/
 
 ENTRYPOINT ["/usr/bin/connect"]
-CMD ["--help"]
